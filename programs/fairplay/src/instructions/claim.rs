@@ -20,7 +20,7 @@ pub struct Claim <'info> {
     pub usdc_token_mint: Account<'info, Mint>,
 
     #[account(
-        seeds = [b"escrow", escrow.key().as_ref()],
+        seeds = [b"escrow",  user.key().as_ref(), seed.to_le_bytes().as_ref()],
         bump = escrow.bump
     )]
     pub escrow: Account<'info, Escrow>,

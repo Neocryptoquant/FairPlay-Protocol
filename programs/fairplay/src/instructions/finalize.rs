@@ -4,7 +4,7 @@ use anchor_spl::{
     token::{Mint, TokenAccount, Token},
     associated_token::AssociatedToken,
 };
-use crate::{CampaignConfig, ContributorState, Escrow, error::ScoringError};
+use crate::{error::ScoringError, CampaignConfig, ContributorState, Escrow};
 
 #[derive(Accounts)]
 #[instruction(seed: u64)]
@@ -21,12 +21,14 @@ pub struct Finalize <'info> {
     pub usdc_token_mint: Account<'info, Mint>,
 
     #[account(
-        seeds = [b"escrow", escrow.key().as_ref()],
+        mut, 
+        seeds = [b"escrow",  user.key().as_ref(), seed.to_le_bytes().as_ref()],
         bump = escrow.bump
     )]
     pub escrow: Account<'info, Escrow>,
 
     #[account(
+        mut,
         seeds = [b"CampaignConfig", seed.to_le_bytes().as_ref()],
         bump = campaign_config.bump
     )]
@@ -34,15 +36,14 @@ pub struct Finalize <'info> {
 
     
     #[account(
-        init_if_needed,
-        payer = sponsor,
-        space = 8 + ContributorState::INIT_SPACE,
+        mut,
         seeds = [b"Contributor", user.key().as_ref()],
         bump,
     )]
     pub contributor: Account<'info, ContributorState>,
 
     #[account(
+        mut, 
         associated_token::mint = usdc_token_mint,
         associated_token::authority = escrow,
     )]

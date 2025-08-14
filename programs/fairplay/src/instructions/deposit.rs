@@ -22,7 +22,7 @@ pub struct Deposit <'info> {
     pub usdc_token_mint: Account<'info, Mint>,
 
     #[account(
-        seeds = [b"escrow", escrow.key().as_ref()],
+        seeds = [b"escrow",  user.key().as_ref(), seed.to_le_bytes().as_ref()],
         bump = escrow.bump
     )]
     pub escrow: Account<'info, Escrow>,
@@ -59,7 +59,14 @@ impl<'info> Deposit <'info> {
             authority: self.escrow.to_account_info()
         };
 
-        let ctx = CpiContext::new(cpi_program, cpi_account);
+         let seeds = &[
+            &b"CampaignConfig"[..],
+            &self.campaign_config.seed.to_le_bytes(),
+            &[self.campaign_config.bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+
+        let ctx = CpiContext::new_with_signer(cpi_program, cpi_account, signer_seeds);
         transfer(ctx, amount)?;
 
         Ok(())

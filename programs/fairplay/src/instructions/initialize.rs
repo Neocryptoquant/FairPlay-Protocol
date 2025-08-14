@@ -5,7 +5,7 @@ use anchor_spl::{
     token::{Mint, TokenAccount, Token}
 };
 
-use crate::{CampaignConfig, ContributorState, Escrow};
+use crate::{CampaignConfig, Escrow, ContributorState};
 
 #[derive(Accounts)]
 #[instruction(seed: u64)]
@@ -25,7 +25,7 @@ pub struct Initialize <'info> {
         init,
         payer = sponsor,
         space = 8 + Escrow::INIT_SPACE,
-        seeds = [b"escrow", user.key().as_ref(), escrow.key().as_ref()],
+        seeds = [b"escrow", user.key().as_ref(), seed.to_le_bytes().as_ref()],
         bump
     )]
     pub escrow: Account<'info, Escrow>,
@@ -129,9 +129,7 @@ impl <'info> Initialize <'info> {
         });
 
         Ok(())
-    }
+    // }
 }
-// pub fn handler(ctx: Context<Initialize>) -> Result<()> {
-//     msg!("Greetings from: {:?}", ctx.program_id);
-//     Ok(())
-// }
+
+}
