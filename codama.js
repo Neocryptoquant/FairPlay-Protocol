@@ -1,6 +1,7 @@
 import { createCodamaConfig } from "gill";
  
 export default createCodamaConfig({
-  idl: "target/idl/fairplay.json",
+  idl: "/home/eaa/turbin3/capstone/fairplay/target/idl/fairplay.json",
   clientJs: "clients/js/src/generated",
 });
+

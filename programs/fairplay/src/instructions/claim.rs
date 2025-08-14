@@ -6,7 +6,6 @@ use anchor_spl::{
 use crate::{CampaignConfig, ContributorState, Escrow};
 
 #[derive(Accounts)]
-#[instruction(seed: u64)]
 pub struct Claim <'info> {
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
@@ -20,13 +19,13 @@ pub struct Claim <'info> {
     pub usdc_token_mint: Account<'info, Mint>,
 
     #[account(
-        seeds = [b"escrow",  user.key().as_ref(), seed.to_le_bytes().as_ref()],
+        seeds = [b"escrow",  user.key().as_ref(), escrow.seed.to_le_bytes().as_ref()],
         bump = escrow.bump
     )]
     pub escrow: Account<'info, Escrow>,
 
     #[account(
-        seeds = [b"CampaignConfig", seed.to_le_bytes().as_ref()],
+        seeds = [b"CampaignConfig", campaign_config.seed.to_le_bytes().as_ref()],
         bump = campaign_config.bump
     )]
     pub campaign_config: Account<'info, CampaignConfig>,

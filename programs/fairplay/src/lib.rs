@@ -50,7 +50,6 @@ pub mod fairplay {
 
     pub fn deposit(
         ctx: Context<Deposit>,
-        seed: u64,
         amount: u64
     ) -> Result<()> {
         ctx.accounts.deposit(amount)
@@ -75,7 +74,6 @@ pub mod fairplay {
 
     pub fn claim_reward(
         ctx: Context<Claim>,
-        seed: u64,
         reward_share: u64,
     ) -> Result<()> {
         ctx.accounts.claim_reward(reward_share)

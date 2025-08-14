@@ -1,28 +1,29 @@
 {
-    "idl": "/home/eaa/turbin3/capstone/fairplay/target/idl/fairplay.json",
-    "before": [],
-    "scripts": {
-        "js": {
-            "from": "@codama/renderers-js",
-            "args": [
-                "clients/js/src/generated",
-                {
-                    "dependencyMap": {  
-                        "solanaAccounts": "gill",
-                        "solanaAddresses": "gill",
-                        "solanaCodecsCore": "gill",
-                        "solanaCodecsDataStructures": "gill",
-                        "solanaCodecsNumbers": "gill",
-                        "solanaCodecsStrings": "gill",
-                        "solanaErrors": "gill",
-                        "solanaInstructions": "gill",
-                        "solanaOptions": "gill",
-                        "solanaPrograms": "gill",
-                        "solanaRpcTypes": "gill",
-                        "solanaSigners": "gill"
-                    }
-                }
-            ]
+  "idl": "/home/eaa/turbin3/capstone/fairplay/target/idl/fairplay.json",
+  "scripts": [
+    {
+        
+      "name": "js",  
+      "from": "@codama/renderers-js",
+      "args": [
+        "clients/js/src/generated",
+        {
+          "dependencyMap": {  
+            "solanaAccounts": "gill",
+            "solanaAddresses": "gill",
+            "solanaCodecsCore": "gill",
+            "solanaCodecsDataStructures": "gill",
+            "solanaCodecsNumbers": "gill",
+            "solanaCodecsStrings": "gill",
+            "solanaErrors": "gill",
+            "solanaInstructions": "gill",
+            "solanaOptions": "gill",
+            "solanaPrograms": "gill",
+            "solanaRpcTypes": "gill",
+            "solanaSigners": "gill"
+          }
         }
+      ]
     }
+  ]
 }
