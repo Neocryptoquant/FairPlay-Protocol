@@ -40,10 +40,18 @@ pub struct Deposit <'info> {
     pub contributor: Account<'info, ContributorState>,
 
     #[account(
+        mut,
         associated_token::mint = usdc_token_mint,
         associated_token::authority = escrow,
     )]
-    pub vault: Account<'info, TokenAccount>,   
+    pub vault: Account<'info, TokenAccount>,
+    
+    #[account(
+        mut,
+        associated_token::mint = usdc_token_mint,
+        associated_token::authority = sponsor,
+    )]
+    pub sponsor_token_account: Account<'info, TokenAccount>,
 }
 
 impl<'info> Deposit <'info> {
@@ -53,19 +61,12 @@ impl<'info> Deposit <'info> {
     ) -> Result<()> {
         let cpi_program = self.token_program.to_account_info();
         let cpi_account = Transfer {
-            from: self.usdc_token_mint.to_account_info(),
+            from: self.sponsor_token_account.to_account_info(),
             to: self.vault.to_account_info(),
-            authority: self.escrow.to_account_info()
+            authority: self.sponsor.to_account_info()
         };
 
-         let seeds = &[
-            &b"CampaignConfig"[..],
-            &self.campaign_config.seed.to_le_bytes(),
-            &[self.campaign_config.bump],
-        ];
-        let signer_seeds = &[&seeds[..]];
-
-        let ctx = CpiContext::new_with_signer(cpi_program, cpi_account, signer_seeds);
+        let ctx = CpiContext::new(cpi_program, cpi_account);
         transfer(ctx, amount)?;
 
         Ok(())

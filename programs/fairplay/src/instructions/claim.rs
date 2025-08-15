@@ -32,16 +32,25 @@ pub struct Claim <'info> {
 
     
     #[account(
+        mut,
         seeds = [b"Contributor", user.key().as_ref()],
         bump = contributor.bump
     )]
     pub contributor: Account<'info, ContributorState>,
 
     #[account(
+        mut,
         associated_token::mint = usdc_token_mint,
         associated_token::authority = escrow,
     )]
-    pub vault: Account<'info, TokenAccount>,   
+    pub vault: Account<'info, TokenAccount>,
+    
+    #[account(
+        mut,
+        associated_token::mint = usdc_token_mint,
+        associated_token::authority = user,
+    )]
+    pub user_token_account: Account<'info, TokenAccount>,
 }
 
 impl <'info> Claim <'info> {
@@ -49,15 +58,28 @@ impl <'info> Claim <'info> {
         &mut self,
         reward_share: u64
     ) -> Result<()> {
+        // Check if already claimed
+        require!(!self.contributor.claimed, crate::error::FairplayError::AlreadyClaimed);
         let cpi_program = self.token_program.to_account_info();
         let cpi_account = Transfer {
             from: self.vault.to_account_info(),
-            to: self.user.to_account_info(),
+            to: self.user_token_account.to_account_info(),
             authority: self.escrow.to_account_info()
         };
 
-        let cpi_ctx = CpiContext::new(cpi_program, cpi_account);
+        let seeds = &[
+            &b"escrow"[..],
+            &self.user.key().to_bytes(),
+            &self.escrow.seed.to_le_bytes(),
+            &[self.escrow.bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+
+        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_account, signer_seeds);
         transfer(cpi_ctx, reward_share)?;
+
+        // Mark contributor as claimed
+        self.contributor.claimed = true;
 
         Ok(())
     }

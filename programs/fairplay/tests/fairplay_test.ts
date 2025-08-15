@@ -1,92 +1,88 @@
 import * as anchor from "@coral-xyz/anchor";
-import { type Program } from "@coral-xyz/anchor";
-// const {BN} = anchor.BN;
+import { Program } from "@coral-xyz/anchor";
 import BN from "bn.js";
-import type {Fairplay} from "/home/eaa/turbin3/capstone/fairplay/target/types/fairplay.ts";
+import type { Fairplay } from "../target/types/fairplay";
 import { PublicKey, Keypair, SystemProgram } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, createMint, createAssociatedTokenAccount, mintTo } from "@solana/spl-token";
+import { 
+  TOKEN_PROGRAM_ID, 
+  ASSOCIATED_TOKEN_PROGRAM_ID, 
+  createMint, 
+  createAssociatedTokenAccount, 
+  mintTo, 
+  getAssociatedTokenAddress 
+} from "@solana/spl-token";
 import { expect } from "chai";
 
-// Test configuration
-const TEST_CONFIG = {
-  seed: new BN(Math.floor(Math.random() * 1000000)),
-  campaignId: 1,
-  totalPoolAmount: new BN(1000000), // 1 USDC (6 decimals)
-  startTime: new BN(Math.floor(Date.now() / 1000)),
-  endTime: new BN(Math.floor(Date.now() / 1000) + 86400), // 24 hours from now
-  totalScore: new BN(0),
-  noOfContributors: 0,
-  contributionScore: new BN(100),
-  depositAmount: new BN(500000), // 0.5 USDC
-  rewardShare: new BN(250000), // 0.25 USDC
-};
-
-// Global test variables
-let sponsor: Keypair;
-let user: Keypair;
-let escrow: PublicKey;
-let usdcMint: PublicKey;
-let sponsorTokenAccount: PublicKey;
-let userTokenAccount: PublicKey;
-
-// Helper function to create and fund a signer
-const createAndFundSigner = async (provider: anchor.AnchorProvider): Promise<Keypair> => {
-  const keyPair = Keypair.generate();
-  
-  // Request airdrop
-  await provider.connection.requestAirdrop(keyPair.publicKey, 5 * anchor.web3.LAMPORTS_PER_SOL);
-  
-  // Wait for confirmation
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-  
-  return keyPair;
-};
-
 describe("FairPlay Protocol Tests", () => {
-  // Configure the client to use the local cluster.
-  anchor.setProvider(anchor.AnchorProvider.env());
-  
-  const program = anchor.workspace.Fairplay as Program<Fairplay>;
+  // Initialize provider and program
   const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+  const program = anchor.workspace.Fairplay as Program<Fairplay>;
+
+  // Test configuration
+  const seed = new BN(Math.floor(Math.random() * 1000000));
+  const campaignId = 1;
+  const totalPoolAmount = new BN(1000000); // 1 USDC
+  const depositAmount = new BN(500000); // 0.5 USDC
+  const contributionScore = new BN(100);
+  const rewardShare = new BN(250000); // 0.25 USDC
+
+  // Accounts
+  let sponsor: Keypair;
+  let user: Keypair;
+  let usdcMint: PublicKey;
+  let sponsorTokenAccount: PublicKey;
+  let userTokenAccount: PublicKey;
   
+  // PDAs
+  let escrowPDA: PublicKey;
+  let campaignConfig: PublicKey;
+  let contributor: PublicKey;
+  let vault: PublicKey;
+
+  // Helper to fund wallet
+  const fundWallet = async (wallet: Keypair): Promise<void> => {
+    const sig = await provider.connection.requestAirdrop(
+      wallet.publicKey, 
+      5 * anchor.web3.LAMPORTS_PER_SOL
+    );
+    await provider.connection.confirmTransaction(sig);
+    // Wait for balance to reflect
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  };
+
   before(async () => {
     console.log("Setting up test environment...");
     
-    // Create and fund signers
-    sponsor = await createAndFundSigner(provider);
-    user = await createAndFundSigner(provider);
+    // Create wallets
+    sponsor = Keypair.generate();
+    user = Keypair.generate();
     
-    console.log(`Sponsor: ${sponsor.publicKey.toString()}`);
-    console.log(`User: ${user.publicKey.toString()}`);
+    // Fund wallets
+    await fundWallet(sponsor);
+    await fundWallet(user);
     
-    // Create test USDC mint
+    console.log(`Sponsor: ${sponsor.publicKey}`);
+    console.log(`User: ${user.publicKey}`);
+    
+    // Create USDC mint
     usdcMint = await createMint(
       provider.connection,
       sponsor,
       sponsor.publicKey,
       null,
-      6 // USDC has 6 decimals
+      6
     );
-    console.log(`USDC Mint: ${usdcMint.toString()}`);
+    console.log(`USDC Mint: ${usdcMint}`);
     
-    // Create and fund sponsor token account
+    // Create token accounts
     sponsorTokenAccount = await createAssociatedTokenAccount(
       provider.connection,
       sponsor,
       usdcMint,
       sponsor.publicKey
     );
-
-    // create escrow
-    escrow = await createAssociatedTokenAccount(
-      provider.connection,
-      sponsor,
-      usdcMint,
-      sponsor.publicKey
-    );
-    console.log(`Escrow: ${escrow.toString()}`);
     
-    // Create user token account
     userTokenAccount = await createAssociatedTokenAccount(
       provider.connection,
       user,
@@ -94,7 +90,7 @@ describe("FairPlay Protocol Tests", () => {
       user.publicKey
     );
     
-    // Mint tokens to sponsor account
+    // Mint tokens to sponsor
     await mintTo(
       provider.connection,
       sponsor,
@@ -104,42 +100,45 @@ describe("FairPlay Protocol Tests", () => {
       2000000 // 2 USDC
     );
     
-    console.log("Test environment setup complete!");
-  });
-
-  it("should initialize the campaign", async () => {
-    console.log("\n=== Testing Campaign Initialization ===");
-    
     // Derive PDAs
-    const [escrowPDA] = PublicKey.findProgramAddressSync(
-      [Buffer.from("escrow"), user.publicKey.toBuffer(), TEST_CONFIG.seed.toArrayLike(Buffer, "le", 8)],
+    [escrowPDA] = PublicKey.findProgramAddressSync(
+      [Buffer.from("escrow"), user.publicKey.toBuffer(), seed.toArrayLike(Buffer, "le", 8)],
       program.programId
     );
     
-    const [campaignConfig] = PublicKey.findProgramAddressSync(
-      [Buffer.from("CampaignConfig"), TEST_CONFIG.seed.toArrayLike(Buffer, "le", 8)],
+    [campaignConfig] = PublicKey.findProgramAddressSync(
+      [Buffer.from("CampaignConfig"), seed.toArrayLike(Buffer, "le", 8)],
       program.programId
     );
     
-    const [contributor] = PublicKey.findProgramAddressSync(
+    [contributor] = PublicKey.findProgramAddressSync(
       [Buffer.from("Contributor"), user.publicKey.toBuffer()],
       program.programId
     );
     
-    const [vault] = PublicKey.findProgramAddressSync(
-      [escrow.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), usdcMint.toBuffer()],
-      ASSOCIATED_TOKEN_PROGRAM_ID
+    vault = await getAssociatedTokenAddress(
+      usdcMint,
+      escrowPDA,
+      true
     );
+    
+    console.log("\n=== PDAs ===");
+    console.log(`Escrow: ${escrowPDA}`);
+    console.log(`Campaign: ${campaignConfig}`);
+    console.log(`Contributor: ${contributor}`);
+    console.log(`Vault: ${vault}`);
+  });
 
+  it("Initialize campaign", async () => {
     const tx = await program.methods
       .initialize(
-        TEST_CONFIG.seed,
-        TEST_CONFIG.campaignId,
-        TEST_CONFIG.totalPoolAmount,
-        TEST_CONFIG.startTime,
-        TEST_CONFIG.endTime,
-        TEST_CONFIG.totalScore,
-        TEST_CONFIG.noOfContributors,
+        seed,
+        campaignId,
+        totalPoolAmount,
+        new BN(Math.floor(Date.now() / 1000)),
+        new BN(Math.floor(Date.now() / 1000) + 86400),
+        new BN(0),
+        0,
         new BN(Math.floor(Date.now() / 1000))
       )
       .accounts({
@@ -157,140 +156,121 @@ describe("FairPlay Protocol Tests", () => {
       .signers([sponsor, user])
       .rpc();
 
-    console.log(`✅ Campaign initialized! Signature: ${tx}`);
-    expect(tx).to.exist;
+    console.log(`✅ Initialized: ${tx}`);
+    
+    // Verify escrow was created
+    const escrowAccount = await program.account.escrow.fetch(escrowPDA);
+    expect(escrowAccount.seed.toString()).to.equal(seed.toString());
+    expect(escrowAccount.owner.toString()).to.equal(user.publicKey.toString());
   });
 
-  it("should deposit funds", async () => {
-    console.log("\n=== Testing Fund Deposit ===");
+  it("Deposit funds", async () => {
+    // Load existing accounts to get their data
+    const escrowAccount = await program.account.escrow.fetch(escrowPDA);
+    const campaignAccount = await program.account.campaignConfig.fetch(campaignConfig);
     
-    // Derive PDAs
-    const [escrow] = PublicKey.findProgramAddressSync(
-      [Buffer.from("escrow"), user.publicKey.toBuffer(), TEST_CONFIG.seed.toArrayLike(Buffer, "le", 8)],
-      program.programId
-    );
-    
-    const [vault] = PublicKey.findProgramAddressSync(
-      [escrow.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), usdcMint.toBuffer()],
-      ASSOCIATED_TOKEN_PROGRAM_ID
-    );
-
     const tx = await program.methods
-      .deposit(TEST_CONFIG.depositAmount)
+      .deposit(depositAmount)
       .accounts({
         sponsor: sponsor.publicKey,
+        user: user.publicKey,
         usdcTokenMint: usdcMint,
-        escrow,
+        escrow: escrowPDA,
+        campaignConfig,
+        contributor,
         vault,
         sponsorTokenAccount,
-      })
-      .signers([sponsor])
-      .rpc();
-
-    console.log(`✅ Funds deposited! Signature: ${tx}`);
-    expect(tx).to.exist;
-  });
-
-  it("should assign a score", async () => {
-    console.log("\n=== Testing Score Assignment ===");
-    
-    // Derive PDAs
-    const [campaignConfig] = PublicKey.findProgramAddressSync(
-      [Buffer.from("CampaignConfig"), TEST_CONFIG.seed.toArrayLike(Buffer, "le", 8)],
-      program.programId
-    );
-    
-    const [contributor] = PublicKey.findProgramAddressSync(
-      [Buffer.from("Contributor"), user.publicKey.toBuffer()],
-      program.programId
-    );
-
-    const tx = await program.methods
-      .assignScore(TEST_CONFIG.seed, TEST_CONFIG.contributionScore)
-      .accounts({
-        sponsor: sponsor.publicKey,
-        user: user.publicKey,
-        usdcTokenMint: usdcMint,
-        campaignConfig,
-        contributor,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
       })
       .signers([sponsor, user])
       .rpc();
 
-    console.log(`✅ Score assigned! Signature: ${tx}`);
-    expect(tx).to.exist;
+    console.log(`✅ Deposited: ${tx}`);
   });
 
-  it("should execute the scoring engine", async () => {
-    console.log("\n=== Testing Scoring Engine ===");
+  it("Assign score", async () => {
+    // Load accounts first
+    const escrowAccount = await program.account.escrow.fetch(escrowPDA);
+    const campaignAccount = await program.account.campaignConfig.fetch(campaignConfig);
     
-    // Derive PDAs
-    const [campaignConfig] = PublicKey.findProgramAddressSync(
-      [Buffer.from("CampaignConfig"), TEST_CONFIG.seed.toArrayLike(Buffer, "le", 8)],
-      program.programId
-    );
-    
-    const [contributor] = PublicKey.findProgramAddressSync(
-      [Buffer.from("Contributor"), user.publicKey.toBuffer()],
-      program.programId
-    );
-
     const tx = await program.methods
-      .scoringEngine(TEST_CONFIG.contributionScore)
+      .assignScore(seed, contributionScore)
       .accounts({
         sponsor: sponsor.publicKey,
         user: user.publicKey,
         usdcTokenMint: usdcMint,
+        escrow: escrowPDA,
         campaignConfig,
         contributor,
+        vault,
+        systemProgram: SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       })
       .signers([sponsor, user])
       .rpc();
 
-    console.log(`✅ Scoring engine executed! Signature: ${tx}`);
-    expect(tx).to.exist;
+    console.log(`✅ Score assigned: ${tx}`);
+    
+    // Verify contributor state
+    const contributorAccount = await program.account.contributorState.fetch(contributor);
+    expect(contributorAccount.contributionScore.toString()).to.equal(contributionScore.toString());
   });
 
-  it("should claim a reward", async () => {
-    console.log("\n=== Testing Reward Claim ===");
+  it("Execute scoring engine", async () => {
+    // Load accounts
+    const escrowAccount = await program.account.escrow.fetch(escrowPDA);
+    const campaignAccount = await program.account.campaignConfig.fetch(campaignConfig);
     
-    // Derive PDAs
-    const [escrow] = PublicKey.findProgramAddressSync(
-      [Buffer.from("escrow"), user.publicKey.toBuffer(), TEST_CONFIG.seed.toArrayLike(Buffer, "le", 8)],
-      program.programId
-    );
-    
-    const [campaignConfig] = PublicKey.findProgramAddressSync(
-      [Buffer.from("CampaignConfig"), TEST_CONFIG.seed.toArrayLike(Buffer, "le", 8)],
-      program.programId
-    );
-    
-    const [contributor] = PublicKey.findProgramAddressSync(
-      [Buffer.from("Contributor"), user.publicKey.toBuffer()],
-      program.programId
-    );
-    
-    const [vault] = PublicKey.findProgramAddressSync(
-      [escrow.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), usdcMint.toBuffer()],
-      ASSOCIATED_TOKEN_PROGRAM_ID
-    );
-
     const tx = await program.methods
-      .claimReward(TEST_CONFIG.rewardShare)
+      .scoringEngine(contributionScore)
       .accounts({
+        sponsor: sponsor.publicKey,
         user: user.publicKey,
         usdcTokenMint: usdcMint,
-        escrow,
+        escrow: escrowPDA,
+        campaignConfig,
+        contributor,
+        vault,
+        systemProgram: SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      })
+      .signers([sponsor, user])
+      .rpc();
+
+    console.log(`✅ Scoring engine: ${tx}`);
+  });
+
+  it("Claim reward", async () => {
+    // Load accounts
+    const escrowAccount = await program.account.escrow.fetch(escrowPDA);
+    const campaignAccount = await program.account.campaignConfig.fetch(campaignConfig);
+    
+    const tx = await program.methods
+      .claimReward(rewardShare)
+      .accounts({
+        sponsor: sponsor.publicKey,
+        user: user.publicKey,
+        usdcTokenMint: usdcMint,
+        escrow: escrowPDA,
         campaignConfig,
         contributor,
         vault,
         userTokenAccount,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
       })
-      .signers([user])
+      .signers([sponsor, user])
       .rpc();
 
-    console.log(`✅ Reward claimed! Signature: ${tx}`);
-    expect(tx).to.exist;
+    console.log(`✅ Reward claimed: ${tx}`);
+    
+    // Verify claim
+    const contributorAccount = await program.account.contributorState.fetch(contributor);
+    expect(contributorAccount.claimed).to.be.true;
   });
-
 });

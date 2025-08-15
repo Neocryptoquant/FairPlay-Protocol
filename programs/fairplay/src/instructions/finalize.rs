@@ -4,7 +4,7 @@ use anchor_spl::{
     token::{Mint, TokenAccount, Token},
     associated_token::AssociatedToken,
 };
-use crate::{error::ScoringError, CampaignConfig, ContributorState, Escrow};
+use crate::{error::FairplayError,CampaignConfig, ContributorState, Escrow};
 
 #[derive(Accounts)]
 pub struct Finalize <'info> {
@@ -56,7 +56,10 @@ impl <'info> Finalize <'info> {
         contribution_score: u128,
         bumps: &FinalizeBumps
     ) -> Result<()> {
-        // require!()
+        // Check if campaign has expired
+        let current_time = Clock::get()?.unix_timestamp;
+        require!(current_time <= self.campaign_config.end_time, FairplayError::CampaignExpired);
+        
         self.contributor.set_inner(ContributorState {
             seed,
             campaign_id: self.campaign_config.campaign_id,
@@ -78,12 +81,12 @@ impl <'info> Finalize <'info> {
         &mut self,
         contribution_score: u128
     ) -> Result<()> {
-        require!(self.contributor.contribution_score <= 100, ScoringError::IncorrectScores);
+        require!(self.contributor.contribution_score <= 100, FairplayError::IncorrectScores);
 
         self.campaign_config.total_score += self.contributor.contribution_score as u128;
         let sum = self.campaign_config.total_score;
 
-        require!(sum > 0, ScoringError::NoTotalScore);
+        require!(sum > 0, FairplayError::NoTotalScore);
         let reward_shares =(contribution_score * self.campaign_config.total_pool_amount as u128)/sum;
 
         self.contributor.reward_share = reward_shares;

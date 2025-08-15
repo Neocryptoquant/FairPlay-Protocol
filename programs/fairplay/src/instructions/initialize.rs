@@ -72,6 +72,9 @@ impl <'info> Initialize <'info> {
         created_at: i64,
         bumps: &InitializeBumps
     ) -> Result<()> {
+        // Validate that end_time is in the future
+        let current_time = Clock::get()?.unix_timestamp;
+        require!(end_time > current_time, crate::error::FairplayError::InvalidEndTime);
         self.campaign_config.set_inner( CampaignConfig {
             seed,
             campaign_id,
@@ -99,7 +102,7 @@ impl <'info> Initialize <'info> {
     ) -> Result<()> {
         self.escrow.set_inner( Escrow {
             seed,
-            owner: self.sponsor.key(),
+            owner: self.user.key(),
             campaign_id,
             bump: bumps.escrow
         });

@@ -11,7 +11,7 @@ use anchor_lang::prelude::*;
 pub use instructions::*;
 pub use state::*;
 
-declare_id!("3qwWMVMuLXq6TXA7QFEXPL8Ajwua6nZ8a6odXqE8431E");
+declare_id!("3YqitnvPHdQ94PWCvpTWy8CDjYiVrYCUT6D5AZUzwAK1");
 
 #[program]
 pub mod fairplay {
@@ -29,7 +29,16 @@ pub mod fairplay {
         no_of_contributors: u32,
         created_at: i64,
     ) -> Result<()> {
-        ctx.accounts.initialize(seed, campaign_id, total_pool_amount, start_time, end_time, total_score, no_of_contributors, created_at, &ctx.bumps)
+        // Initialize campaign config
+        ctx.accounts.initialize(seed, campaign_id, total_pool_amount, start_time, end_time, total_score, no_of_contributors, created_at, &ctx.bumps)?;
+        
+        // Initialize escrow account
+        ctx.accounts.initialize_escrow(seed, campaign_id, &ctx.bumps)?;
+        
+        // Initialize contributor state
+        ctx.accounts.initialize_contributor_state(seed, created_at, &ctx.bumps)?;
+        
+        Ok(())
     }
 
     // pub fn initialize_escrow(
