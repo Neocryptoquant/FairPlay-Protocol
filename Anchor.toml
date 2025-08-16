@@ -2,14 +2,14 @@
 seeds = false
 skip-lint = false
 
-[programs.localnet]
+[programs.devnet]
 fairplay = "3YqitnvPHdQ94PWCvpTWy8CDjYiVrYCUT6D5AZUzwAK1"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Localnet"
+cluster = "devnet"
 wallet = "/home/eaa/.config/solana/id.json"
 
 [scripts]
