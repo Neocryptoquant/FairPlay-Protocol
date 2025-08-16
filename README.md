@@ -1,134 +1,79 @@
+# 🌟 Welcome to FairPlay Protocol
 
-# 🧠 FairPlay Protocol – Proof of Concept (PoC)
-
-FairPlay Protocol is an on-chain reward distribution system that ensures fair and transparent contribution-based rewards in collaborative environments. This PoC targets hackathons and DevRel-led bounty campaigns, with GitHub Pull Requests as the contribution metric.
-
-## 📌 Objective
-
-Enable campaign organizers (DevRels, Sponsors) to:
-- Launch contribution-based campaigns with a set deadline and reward pool (in USDC).
-- Automatically track contributors' GitHub Pull Requests.
-- Score contributors based on merged/unmerged status.
-- Distribute on-chain rewards fairly using a transparent scoring and allocation system.
-
-## 🚀 MVP Deadline
-
-**Target launch:** August 15, 2025  
-We are entering production mode with this PoC to meet our deadline.
+FairPlay Protocol is a groundbreaking on-chain reward distribution system designed to ensure fairness and transparency in collaborative environments. Whether you're running a hackathon, a bounty campaign, or any contribution-based initiative, FairPlay ensures contributors are rewarded equitably based on their efforts.
 
 ---
 
-## 🧱 Architecture Overview
+## 🤔 What is FairPlay?
 
-The system is split across 3 coordinated components:
-
-### 1. ⚙️ Solana Program (On-Chain Logic)
-Handles:
-- Campaign state storage
-- Contributor accounts
-- Reward pool escrow
-- Scoring and reward distribution
-
-### 2. 🧠 Backend Server (Off-Chain GitHub Sync)
-Responsibilities:
-- Monitor GitHub PRs via the GitHub API
-- Score contributors based on a defined model
-- Push scores to the Solana program post-deadline
-
-### 3. 🎨 Frontend (Web UI)
-Used by:
-- Organizers to create and fund campaigns
-- Contributors to connect wallets and track contributions
-- Public for transparency and campaign visibility
+FairPlay Protocol is built to:
+- **Launch campaigns**: Organizers can create campaigns with a reward pool (in USDC) and set deadlines.
+- **Track contributions**: Automatically monitor GitHub Pull Requests (PRs) and evaluate their impact.
+- **Distribute rewards**: Allocate rewards transparently based on a scoring model.
 
 ---
 
-## 🧮 Scoring Model
+## 🚀 How to Interact with FairPlay
 
-| Contribution Type | Description                        | Score |
-|-------------------|------------------------------------|-------|
-| ✅ Merged PR      | Successfully merged into main code | 100   |
-| 🕵️‍♂️ Unmerged PR with effort | Not merged but reviewed/discussed  | 20    |
-| 🚫 Spam/invalid PR| Clearly irrelevant or spammy       | 0     |
+### For Organizers:
+1. **Create a Campaign**: Use the frontend to set up a campaign, define the reward pool, and specify the GitHub repository to track.
+2. **Fund the Campaign**: Deposit USDC into the campaign's escrow account.
+3. **Monitor Contributions**: Let the backend handle GitHub PR tracking and scoring.
+4. **Close the Campaign**: Once the deadline passes, finalize the campaign to calculate rewards.
 
-The total reward pool is distributed proportionally:
+### For Contributors:
+1. **Connect Your Wallet**: Link your Solana wallet to the campaign via the frontend.
+2. **Contribute**: Submit meaningful PRs to the specified GitHub repository.
+3. **Track Your Score**: View your contribution score and potential rewards in real-time.
+4. **Claim Rewards**: After the campaign ends, withdraw your share of the reward pool.
+
+---
+
+## 🧮 How Rewards Are Calculated
+
+FairPlay uses a transparent scoring model:
+
+| Contribution Type         | Description                        | Score |
+|---------------------------|------------------------------------|-------|
+| ✅ **Merged PR**          | Successfully merged into the repo | 100   |
+| 🕵️‍♂️ **Reviewed PR**     | Not merged but reviewed/discussed | 20    |
+| 🚫 **Spam/Invalid PR**    | Irrelevant or spammy              | 0     |
+
+Rewards are distributed proportionally:
 
 ```
 reward_i = (score_i / total_scores) * total_reward
 ```
 
-All scores are normalized across contributors after the scoring sync.
-
----
-
-## 📜 Instructions Overview (Solana Program)
-
-1. `initialize_campaign` – Create new campaign with USDC pool, timeline, etc.
-2. `register_contributor` – Register contributor wallet tied to a GitHub ID.
-3. `update_score` – (Called by backend) Update scores after evaluating PRs.
-4. `close_campaign` – Mark campaign as ended and ready for reward distribution.
-5. `claim_reward` – Allow contributor to withdraw their allocated share from escrow.
-
----
-
-## 🗂️ On-Chain State Accounts
-
-### `CampaignState`
-Stores global campaign info:
-- Authority (organizer)
-- Campaign name, timeline
-- Escrow account
-- Total reward pool (USDC)
-- GitHub repo metadata
-- Total score across all contributors
-
-### `ContributorState`
-Stores per-user info:
-- Wallet address
-- GitHub username (mapped)
-- Score (from PR analysis)
-- Claimed status
-- Reward amount (calculated after score update)
-
----
-
-## 🔗 Backend GitHub Sync
-
-- Scheduled to run once per campaign, at or after the deadline.
-- Pulls all PRs from target repo.
-- Classifies and scores based on the scoring model.
-- Pushes total contributor scores on-chain via `update_score` instruction.
-
 ---
 
 ## 🛠️ Technology Stack
 
-- 🧱 **Solana Program:** Anchor (Rust)
-- ⚙️ **Backend:** Node.js / Express or Python (TBD)
-- 🎨 **Frontend:** React + TailwindCSS
-- 💳 **Token:** USDC on Solana
+- **Blockchain**: Solana (Anchor framework)
+- **Backend**: Node.js / Express
+- **Frontend**: React + TailwindCSS
+- **Token**: USDC on Solana
 
 ---
 
-## 📅 Milestone Plan
+## 📜 Key Features
 
-| Date       | Goal                            |
-|------------|---------------------------------|
-| Aug 7–10   | Finalize Solana smart contract  |
-| Aug 11–12  | Backend GitHub sync integration |
-| Aug 13–14  | Frontend + end-to-end testing   |
-| **Aug 15** | 🎉 PoC MVP launch                |
+- **On-Chain Transparency**: All campaign and reward data is stored on Solana.
+- **GitHub Integration**: Automatically syncs and scores contributions.
+- **User-Friendly Interface**: Intuitive frontend for both organizers and contributors.
 
 ---
 
-## 🤝 Contributors
+## 🤝 Join the FairPlay Community
 
-Lead Dev: [Emmanuel Adebayo Abimbola]  
-GitHub: [github.com/neocryptoquant]  
-X (Twitter): [@eurojohnson1]
+We believe in building together. If you have ideas, feedback, or want to contribute, reach out to us:
+
+- **Lead Developer**: Emmanuel Adebayo Abimbola
+- **GitHub**: [github.com/neocryptoquant](https://github.com/neocryptoquant)
+- **Twitter**: [@eurojohnson1](https://twitter.com/eurojohnson1)
 
 ---
 
 ## ⚠️ Disclaimer
 
-This PoC is designed for experimental and demonstration purposes. Security, scalability, and multi-campaign handling are deferred for future versions.
+FairPlay Protocol is currently in its Proof of Concept (PoC) phase. While we strive for reliability, this version is intended for experimental use only. Future iterations will address scalability, security, and multi-campaign support.
