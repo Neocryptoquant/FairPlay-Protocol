@@ -3,9 +3,10 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { GitBranch, DollarSign, Eye } from "lucide-react"
-import { CampaignLaunchModal, type CampaignData } from "@/components/campaign-launch-modal"
-import { CampaignFinalizeModal } from "@/components/campaign-finalize-modal"
-import { SolanaIntegration } from "@/lib/solana-integration"
+import { CampaignLaunchModal, type CampaignData } from "../components/campaign-launch-modal"
+import { CampaignFinalizeModal } from "../components/campaign-finalize-modal"
+import { WalletConnect } from "../components/wallet-connect"
+import { useSolana } from "../hooks/use-solana"
 import Image from "next/image"
 import Link from "next/link"
 
@@ -15,18 +16,26 @@ export default function HomePage() {
   const [currentCampaignId, setCurrentCampaignId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
-  const solana = SolanaIntegration.getInstance()
+  const { isConnected, publicKey, initializeCampaign, depositToCampaign, finalizeCampaign, isCampaignEnded } =
+    useSolana()
 
   const handleLaunchCampaign = async (campaignData: CampaignData) => {
+    if (!isConnected) {
+      alert("Please connect your wallet first!")
+      return
+    }
+
     setIsLoading(true)
     try {
-      console.log("🚀 Launching campaign with data:", campaignData)
-      const campaignId = await solana.initializeCampaign(campaignData)
+      console.log("[v0] Launching campaign with data:", campaignData)
+
+      const campaignId = await initializeCampaign(campaignData)
+      console.log("[v0] Campaign initialized with ID:", campaignId)
+
+      await depositToCampaign(campaignId, campaignData.rewardAmount)
+      console.log("[v0] Initial deposit completed")
+
       setCurrentCampaignId(campaignId)
-
-      // Start GitHub monitoring (in production, this would trigger backend)
-      console.log("👀 Starting GitHub PR monitoring for:", campaignData.gitRepoUrl)
-
       alert(`Campaign launched successfully! ID: ${campaignId}`)
     } catch (error) {
       console.error("Failed to launch campaign:", error)
@@ -41,8 +50,16 @@ export default function HomePage() {
 
     setIsLoading(true)
     try {
-      console.log("🏁 Finalizing campaign:", currentCampaignId)
-      await solana.finalizeCampaign(currentCampaignId)
+      console.log("[v0] Finalizing campaign:", currentCampaignId)
+
+      const hasEnded = await isCampaignEnded(currentCampaignId)
+      if (!hasEnded) {
+        alert("Campaign has not ended yet. Please wait until the duration expires.")
+        return
+      }
+
+      await finalizeCampaign(currentCampaignId)
+      console.log("[v0] Campaign finalized successfully")
 
       alert("Campaign finalized and rewards distributed!")
       setCurrentCampaignId(null)
@@ -54,15 +71,13 @@ export default function HomePage() {
     }
   }
 
-  const currentCampaign = currentCampaignId ? solana.getCampaign(currentCampaignId) : null
-
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Made logo clickable with Link component */}
+            {/* Logo */}
             <Link href="/" className="flex items-center space-x-3">
               <Image src="/fairplay-logo.png" alt="FairPlay Protocol" width={32} height={32} className="w-8 h-8" />
               <div>
@@ -72,7 +87,6 @@ export default function HomePage() {
             </Link>
 
             {/* Navigation */}
-            {/* Updated navigation to use Next.js Link components */}
             <nav className="hidden md:flex items-center space-x-8">
               <Link href="/how-it-works" className="text-gray-600 hover:text-gray-900 font-medium">
                 How it Works
@@ -93,28 +107,9 @@ export default function HomePage() {
               </a>
             </nav>
 
-            {/* CTA Buttons */}
+            {/* Wallet Connect */}
             <div className="flex items-center space-x-3">
-              <Button variant="ghost" className="text-gray-600 hover:text-gray-900">
-                Join Campaign
-              </Button>
-              <Button
-                className="bg-orange-500 hover:bg-orange-600 text-white"
-                onClick={() => setLaunchModalOpen(true)}
-                disabled={isLoading}
-              >
-                {currentCampaign ? "Active Campaign" : "Launch Campaign"}
-              </Button>
-              {currentCampaign && (
-                <Button
-                  variant="outline"
-                  className="border-red-300 text-red-600 hover:bg-red-50 bg-transparent"
-                  onClick={() => setFinalizeModalOpen(true)}
-                  disabled={isLoading}
-                >
-                  End Campaign
-                </Button>
-              )}
+              <WalletConnect />
             </div>
           </div>
         </div>
@@ -136,22 +131,32 @@ export default function HomePage() {
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-20">
-            <Button
-              size="lg"
-              className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-3"
-              onClick={() => setLaunchModalOpen(true)}
-              disabled={isLoading}
-            >
-              {currentCampaign ? "Active Campaign" : "Launch Campaign"}
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="border-gray-300 text-gray-700 hover:bg-gray-50 px-8 py-3 bg-transparent"
-            >
-              Join as Contributor
-            </Button>
+          <div className="flex flex-col items-center justify-center gap-4 mb-20">
+            {isConnected ? (
+              <Button
+                size="lg"
+                className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-3 text-lg"
+                onClick={() => setLaunchModalOpen(true)}
+                disabled={isLoading}
+              >
+                {currentCampaignId ? "Manage Active Campaign" : "Launch Campaign"}
+              </Button>
+            ) : (
+              <div className="text-gray-500 text-lg">Connect your wallet in the top right to launch campaigns</div>
+            )}
+
+            {/* Finalize Campaign Button */}
+            {isConnected && currentCampaignId && (
+              <Button
+                variant="outline"
+                size="lg"
+                className="border-orange-500 text-orange-500 hover:bg-orange-50 px-8 py-3 bg-transparent"
+                onClick={() => setFinalizeModalOpen(true)}
+                disabled={isLoading}
+              >
+                Finalize Campaign
+              </Button>
+            )}
           </div>
         </div>
 
@@ -186,16 +191,18 @@ export default function HomePage() {
         </div>
       </main>
 
+      {/* Campaign Launch Modal */}
       <CampaignLaunchModal open={launchModalOpen} onOpenChange={setLaunchModalOpen} onLaunch={handleLaunchCampaign} />
 
+      {/* Campaign Finalize Modal */}
       <CampaignFinalizeModal
         open={finalizeModalOpen}
         onOpenChange={setFinalizeModalOpen}
         onFinalize={handleFinalizeCampaign}
         campaignStats={{
-          totalContributors: currentCampaign?.contributors?.size || 0,
-          totalRewards: currentCampaign?.rewardAmount || 0,
-          totalPRs: currentCampaign?.totalScore || 0,
+          totalContributors: 0,
+          totalRewards: 0,
+          totalPRs: 0,
         }}
       />
     </div>

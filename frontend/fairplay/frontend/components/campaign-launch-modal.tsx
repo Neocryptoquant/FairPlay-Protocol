@@ -14,7 +14,7 @@ import { GitBranch, DollarSign, Calendar, Shield, Info, CheckCircle, AlertCircle
 interface CampaignLaunchModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onLaunch: (campaignData: CampaignData) => void
+  onLaunch: (campaignData: CampaignData) => Promise<void>
 }
 
 export interface CampaignData {
@@ -94,6 +94,7 @@ export function CampaignLaunchModal({ open, onOpenChange, onLaunch }: CampaignLa
     setIsLoading(true)
 
     try {
+      // Call the onLaunch prop which will handle Solana integration
       await onLaunch(formData)
       onOpenChange(false)
       // Reset form
@@ -108,7 +109,8 @@ export function CampaignLaunchModal({ open, onOpenChange, onLaunch }: CampaignLa
       setStep(1)
       setErrors({})
     } catch (error) {
-      console.error("Failed to launch campaign:", error)
+      console.error("[v0] Failed to launch campaign:", error)
+      setErrors({ rewardAmount: "Failed to launch campaign. Please try again." })
     } finally {
       setIsLoading(false)
     }
