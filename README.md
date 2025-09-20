@@ -2,6 +2,7 @@
 
 FairPlay Protocol is a groundbreaking on-chain reward distribution system designed to ensure fairness and transparency in collaborative environments. Whether you're running a hackathon, a bounty campaign, or any contribution-based initiative, FairPlay ensures contributors are rewarded equitably based on their efforts.
 
+Check out on-chain: 3YqitnvPHdQ94PWCvpTWy8CDjYiVrYCUT6D5AZUzwAK1
 ---
 
 ## 🤔 What is FairPlay?
